@@ -1,1 +1,0 @@
-{"sync":{"totalRequests":459,"averageTimeMs":"1.11"},"async":{"totalRequests":506,"averageTimeMs":"1.97"},"comparison":{"asyncMoreRequestsPercent":"10.24%","averageTimeDifferencePercent":"-78.16%","averageTimeAsyncSlowerThanSync":"1.78x"}}
