@@ -13,8 +13,8 @@ const getRandomFilePath = () => {
 };
 
 let stats = {
-  sync: { count: 0, totalTime: 0 },
-  async: { count: 0, totalTime: 0 },
+  sync: { success: 0, fail: 0, totalTime: 0 },
+  async: { success: 0, fail: 0, totalTime: 0 },
 };
 
 function nowMs() {
@@ -23,12 +23,12 @@ function nowMs() {
 
 function readFileSyncOperation() {
   const filePath = getRandomFilePath();
-  readFileSync(filePath, "utf-8");
+  return readFileSync(filePath, "utf-8");
 }
 
 async function readFileAsyncOperation() {
   const filePath = getRandomFilePath();
-  await fs.readFile(filePath, "utf-8");
+  return await fs.readFile(filePath, "utf-8");
 }
 
 const server = Bun.serve({
@@ -38,30 +38,40 @@ const server = Bun.serve({
     const start = nowMs();
 
     if (url.pathname === "/sync") {
-      readFileSyncOperation();
-      const elapsed = nowMs() - start;
-      stats.sync.count += 1;
-      stats.sync.totalTime += elapsed;
-      return new Response("OK");
+      try {
+        readFileSyncOperation();
+        const elapsed = nowMs() - start;
+        stats.sync.success += 1;
+        stats.sync.totalTime += elapsed;
+        return new Response("OK");
+      } catch (err) {
+        stats.sync.fail += 1;
+        return new Response("Read failed", { status: 500 });
+      }
     }
 
     if (url.pathname === "/async") {
-      await readFileAsyncOperation();
-      const elapsed = nowMs() - start;
-      stats.async.count += 1;
-      stats.async.totalTime += elapsed;
-      return new Response("OK");
+      try {
+        await readFileAsyncOperation();
+        const elapsed = nowMs() - start;
+        stats.async.success += 1;
+        stats.async.totalTime += elapsed;
+        return new Response("OK");
+      } catch (err) {
+        stats.async.fail += 1;
+        return new Response("Read failed", { status: 500 });
+      }
     }
 
     if (url.pathname === "/stats") {
       const { sync, async } = stats;
 
-      const syncAvg = sync.count > 0 ? sync.totalTime / sync.count : 0;
-      const asyncAvg = async.count > 0 ? async.totalTime / async.count : 0;
+      const syncAvg = sync.success > 0 ? sync.totalTime / sync.success : 0;
+      const asyncAvg = async.success > 0 ? async.totalTime / async.success : 0;
 
       const requestDelta =
-        sync.count > 0
-          ? (((async.count - sync.count) / sync.count) * 100).toFixed(2)
+        sync.success > 0
+          ? (((async.success - sync.success) / sync.success) * 100).toFixed(2)
           : "N/A";
 
       const timeDelta =
@@ -76,11 +86,15 @@ const server = Bun.serve({
 
       return Response.json({
         sync: {
-          totalRequests: sync.count,
+          totalRequests: sync.success + sync.fail,
+          successful: sync.success,
+          failed: sync.fail,
           averageTimeMs: syncAvg.toFixed(2),
         },
         async: {
-          totalRequests: async.count,
+          totalRequests: async.success + async.fail,
+          successful: async.success,
+          failed: async.fail,
           averageTimeMs: asyncAvg.toFixed(2),
         },
         comparison: {
@@ -93,8 +107,8 @@ const server = Bun.serve({
 
     if (url.pathname === "/reset") {
       stats = {
-        sync: { count: 0, totalTime: 0 },
-        async: { count: 0, totalTime: 0 },
+        sync: { success: 0, fail: 0, totalTime: 0 },
+        async: { success: 0, fail: 0, totalTime: 0 },
       };
       return new Response("Stats reset");
     }
